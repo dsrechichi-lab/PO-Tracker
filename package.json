@@ -1,10 +1,7 @@
-{
-  "name": "po-tracker",
+name": "po-tracker",
   "version": "1.0.0",
   "private": true,
-  "engines": {
-    "node": ">=20.0.0"
-  },
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
