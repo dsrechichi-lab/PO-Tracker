@@ -2663,7 +2663,7 @@ export default function App() {
               />
             </div>
             <div style={{ fontSize: 13, opacity: 0.75 }}>
-              Purchase order management
+              Track purchase orders, suppliers and maintenance speend by machine
             </div>
           </div>
           <button
