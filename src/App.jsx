@@ -2648,7 +2648,7 @@ export default function App() {
             >
               <span style={{ fontSize: 22 }}>⚙️</span>
               <span style={{ fontSize: 22, fontWeight: 800 }}>
-                PO Tracker
+                Maintenance Spend Intelligence Dashboard
               </span>
               <span
                 style={{
