@@ -575,11 +575,159 @@ function TabMachines({ machines, pos, onSave, onDelete, saving }) {
   );
 }
 
-function POForm({ editPO, onSave, onCancel, saving, machines }) {
+function SupplierForm({ editSupplier, onSave, onCancel, saving }) {
+  const [name, setName] = useState(editSupplier?.name || "");
+  const [errors, setErrors] = useState({});
+
+  function validate() {
+    const e = {};
+    if (!name.trim()) e.name = "Supplier name is required";
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  }
+
+  function submit() {
+    if (!validate()) return;
+    onSave({ name: name.trim() });
+  }
+
+  const inp = {
+    padding: "9px 12px", borderRadius: 8, border: "1px solid #E2E8F0",
+    fontSize: 14, color: "#1E293B", outline: "none", width: "100%", boxSizing: "border-box",
+  };
+  const lbl = {
+    fontSize: 12, fontWeight: 600, color: "#64748B", marginBottom: 4,
+    display: "block", textTransform: "uppercase", letterSpacing: "0.05em",
+  };
+  const err = { color: "#DC2626", fontSize: 12, marginTop: 3 };
+
+  return (
+    <div style={{ background: "#fff", borderRadius: 16, padding: 24, marginBottom: 20, boxShadow: "0 4px 16px rgba(0,0,0,0.08)", border: "1px solid #E2E8F0" }}>
+      <h3 style={{ margin: "0 0 20px", color: "#1E293B", fontSize: 18 }}>
+        {editSupplier ? "Edit Supplier" : "New Supplier"}
+      </h3>
+      <div style={{ marginBottom: 20 }}>
+        <label style={lbl}>Supplier Name *</label>
+        <input style={inp} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Acme Industrial" autoFocus />
+        {errors.name && <div style={err}>{errors.name}</div>}
+      </div>
+      <div style={{ display: "flex", gap: 12 }}>
+        <button onClick={submit} disabled={saving} style={{ padding: "11px 28px", borderRadius: 10, border: "none", background: "#2E75B6", color: "#fff", cursor: saving ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 14, opacity: saving ? 0.7 : 1 }}>
+          {saving ? "Saving…" : editSupplier ? "Save Changes" : "Add Supplier"}
+        </button>
+        <button onClick={onCancel} style={{ padding: "11px 24px", borderRadius: 10, border: "1px solid #E2E8F0", background: "#fff", cursor: "pointer", fontWeight: 500, fontSize: 14 }}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TabSuppliers({ suppliers, pos, onSave, onDelete, saving }) {
+  const [showForm, setShowForm] = useState(false);
+  const [editSupplier, setEditSupplier] = useState(null);
+  const [deleteSupplier, setDeleteSupplier] = useState(null);
+  const [delSaving, setDelSaving] = useState(false);
+
+  const poCountBySupplier = useMemo(() => {
+    const counts = {};
+    pos.forEach((p) => { if (p.supplier) counts[p.supplier] = (counts[p.supplier] || 0) + 1; });
+    return counts;
+  }, [pos]);
+
+  async function handleDelete() {
+    setDelSaving(true);
+    await onDelete(deleteSupplier.id);
+    setDelSaving(false);
+    setDeleteSupplier(null);
+  }
+
+  function startEdit(s) {
+    setEditSupplier(s);
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  return (
+    <div>
+      {deleteSupplier && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: 32, maxWidth: 400, width: "90%", textAlign: "center", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>🗑️</div>
+            <h3 style={{ margin: "0 0 8px", color: "#1E293B", fontSize: 20 }}>Delete Supplier?</h3>
+            <p style={{ color: "#64748B", margin: "0 0 8px" }}>
+              Delete <strong>{deleteSupplier.name}</strong>? This cannot be undone.
+            </p>
+            {(poCountBySupplier[deleteSupplier.name] || 0) > 0 && (
+              <p style={{ background: "#FEF3C7", border: "1px solid #FDE68A", borderRadius: 8, padding: "10px 14px", color: "#92400E", fontSize: 13, margin: "0 0 16px" }}>
+                ⚠️ {poCountBySupplier[deleteSupplier.name]} PO{poCountBySupplier[deleteSupplier.name] !== 1 ? "s" : ""} reference this supplier.
+              </p>
+            )}
+            <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 16 }}>
+              <button onClick={() => setDeleteSupplier(null)} style={{ padding: "10px 24px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#fff", cursor: "pointer", fontWeight: 500 }}>Cancel</button>
+              <button onClick={handleDelete} disabled={delSaving} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: "#DC2626", color: "#fff", cursor: delSaving ? "not-allowed" : "pointer", fontWeight: 500, opacity: delSaving ? 0.7 : 1 }}>
+                {delSaving ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      <div style={{ display: "flex", gap: 10, marginBottom: 20, alignItems: "center" }}>
+        <button
+          onClick={() => { setShowForm((s) => !s); setEditSupplier(null); }}
+          style={{ padding: "9px 18px", borderRadius: 10, border: "none", background: "#2E75B6", color: "#fff", cursor: "pointer", fontWeight: 600, fontSize: 14 }}
+        >
+          {showForm && !editSupplier ? "✕ Cancel" : "➕ New Supplier"}
+        </button>
+        <span style={{ color: "#64748B", fontSize: 13, marginLeft: "auto" }}>
+          {suppliers.length} supplier{suppliers.length !== 1 ? "s" : ""}
+        </span>
+      </div>
+      {showForm && (
+        <SupplierForm
+          editSupplier={editSupplier}
+          saving={saving}
+          onSave={async (data) => { await onSave(data, editSupplier); setShowForm(false); setEditSupplier(null); }}
+          onCancel={() => { setShowForm(false); setEditSupplier(null); }}
+        />
+      )}
+      {suppliers.length === 0 ? (
+        <div style={{ textAlign: "center", padding: 60, color: "#94A3B8" }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>🏭</div>
+          <div style={{ fontSize: 16 }}>No suppliers yet. Add your first supplier above.</div>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 16 }}>
+          {suppliers.map((s) => {
+            const count = poCountBySupplier[s.name] || 0;
+            return (
+              <div key={s.id} style={{ background: "#fff", borderRadius: 14, padding: "20px 24px", boxShadow: "0 2px 8px rgba(0,0,0,0.06)", border: "1px solid #E2E8F0" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                  <span style={{ fontSize: 20 }}>🏭</span>
+                  <span style={{ fontWeight: 700, color: "#1E293B", fontSize: 16, flex: 1 }}>{s.name}</span>
+                </div>
+                <div style={{ fontSize: 13, color: "#64748B", marginBottom: 16 }}>
+                  {count} PO{count !== 1 ? "s" : ""}
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => startEdit(s)} style={{ flex: 1, padding: "7px 0", borderRadius: 8, border: "1px solid #E2E8F0", background: "#F8FAFC", cursor: "pointer", fontSize: 13, color: "#2E75B6", fontWeight: 500 }}>Edit</button>
+                  <button onClick={() => setDeleteSupplier(s)} style={{ flex: 1, padding: "7px 0", borderRadius: 8, border: "none", background: "#FEE2E2", cursor: "pointer", fontSize: 13, color: "#DC2626", fontWeight: 500 }}>Delete</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function POForm({ editPO, onSave, onCancel, saving, machines, suppliers }) {
   const [po, setPo] = useState(editPO?.po || "");
   const [date, setDate] = useState(editPO?.date || "");
   const [desc, setDesc] = useState(editPO?.description || "");
   const [machine, setMachine] = useState(editPO?.machine || "");
+  const [supplier, setSupplier] = useState(editPO?.supplier || "");
   const [items, setItems] = useState(
     editPO?.items?.length
       ? editPO.items.map((i) => ({
@@ -622,6 +770,7 @@ function POForm({ editPO, onSave, onCancel, saving, machines }) {
       po,
       date,
       machine,
+      supplier,
       description: desc,
       total,
       items: items.map((i) => ({
@@ -753,125 +902,103 @@ function POForm({ editPO, onSave, onCancel, saving, machines }) {
         {errors.machine && <div style={err}>{errors.machine}</div>}
       </div>
       <div style={{ marginBottom: 20 }}>
-        <label style={lbl}>Line Items</label>
-        <div style={{ overflowX: "auto" }}>
-          <table
-            style={{ width: "100%", borderCollapse: "collapse", minWidth: 600 }}
+        <label style={lbl}>Supplier</label>
+        {suppliers.length === 0 ? (
+          <div style={{ color: "#94A3B8", fontSize: 13 }}>
+            No suppliers configured. Add suppliers in the Suppliers tab.
+          </div>
+        ) : (
+          <select
+            style={inp}
+            value={supplier}
+            onChange={(e) => setSupplier(e.target.value)}
           >
-            <thead>
-              <tr style={{ background: "#F8FAFC" }}>
-                {[
-                  "Part No.",
-                  "Item Description",
-                  "Qty",
-                  "Unit Cost ($)",
-                  "Total",
-                  "",
-                ].map((h) => (
-                  <th
-                    key={h}
-                    style={{
-                      padding: "8px 10px",
-                      textAlign: "left",
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: "#64748B",
-                      borderBottom: "1px solid #E2E8F0",
-                    }}
+            <option value="">— No supplier —</option>
+            {suppliers.map((s) => (
+              <option key={s.id} value={s.name}>{s.name}</option>
+            ))}
+          </select>
+        )}
+      </div>
+      <div style={{ marginBottom: 20 }}>
+        <label style={lbl}>Line Items</label>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {items.map((item, i) => {
+            const lineTotal = (parseFloat(item.qty) || 0) * (parseFloat(item.unit_cost) || 0);
+            return (
+              <div
+                key={i}
+                style={{
+                  border: "1px solid #E2E8F0",
+                  borderRadius: 10,
+                  padding: 14,
+                  background: "#FAFBFC",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    Item {i + 1}
+                  </span>
+                  <button
+                    onClick={() => removeItem(i)}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: "#94A3B8", fontSize: 20, lineHeight: 1, padding: "0 4px" }}
                   >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item, i) => {
-                const lineTotal =
-                  (parseFloat(item.qty) || 0) *
-                  (parseFloat(item.unit_cost) || 0);
-                return (
-                  <tr key={i}>
-                    <td style={{ padding: "6px 4px" }}>
-                      <input
-                        style={{ ...inp, fontFamily: "monospace", width: 110 }}
-                        value={item.part_no}
-                        onChange={(e) =>
-                          updateItem(i, "part_no", e.target.value)
-                        }
-                        placeholder="Optional"
-                      />
-                    </td>
-                    <td style={{ padding: "6px 4px" }}>
-                      <input
-                        style={{ ...inp, minWidth: 160 }}
-                        value={item.name}
-                        onChange={(e) => updateItem(i, "name", e.target.value)}
-                        placeholder="Description *"
-                      />
-                      {errors[`item_name_${i}`] && (
-                        <div style={err}>{errors[`item_name_${i}`]}</div>
-                      )}
-                    </td>
-                    <td style={{ padding: "6px 4px" }}>
-                      <input
-                        type="number"
-                        style={{ ...inp, width: 80 }}
-                        value={item.qty}
-                        onChange={(e) => updateItem(i, "qty", e.target.value)}
-                        placeholder="0"
-                        min="0"
-                        step="0.01"
-                      />
-                      {errors[`item_qty_${i}`] && (
-                        <div style={err}>{errors[`item_qty_${i}`]}</div>
-                      )}
-                    </td>
-                    <td style={{ padding: "6px 4px" }}>
-                      <input
-                        type="number"
-                        style={{ ...inp, width: 100 }}
-                        value={item.unit_cost}
-                        onChange={(e) =>
-                          updateItem(i, "unit_cost", e.target.value)
-                        }
-                        placeholder="0.00"
-                        min="0"
-                        step="0.01"
-                      />
-                      {errors[`item_cost_${i}`] && (
-                        <div style={err}>{errors[`item_cost_${i}`]}</div>
-                      )}
-                    </td>
-                    <td
-                      style={{
-                        padding: "6px 10px",
-                        fontWeight: 600,
-                        color: "#1E293B",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {fmt(lineTotal)}
-                    </td>
-                    <td style={{ padding: "6px 4px" }}>
-                      <button
-                        onClick={() => removeItem(i)}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          cursor: "pointer",
-                          color: "#94A3B8",
-                          fontSize: 18,
-                          lineHeight: 1,
-                        }}
-                      >
-                        ×
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                    ×
+                  </button>
+                </div>
+                <div style={{ marginBottom: 8 }}>
+                  <label style={lbl}>Item Description *</label>
+                  <input
+                    style={inp}
+                    value={item.name}
+                    onChange={(e) => updateItem(i, "name", e.target.value)}
+                    placeholder="e.g. Bearing, Belt, Filter…"
+                  />
+                  {errors[`item_name_${i}`] && <div style={err}>{errors[`item_name_${i}`]}</div>}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 110px", gap: 8, marginBottom: 8 }}>
+                  <div>
+                    <label style={lbl}>Part No.</label>
+                    <input
+                      style={{ ...inp, fontFamily: "monospace" }}
+                      value={item.part_no}
+                      onChange={(e) => updateItem(i, "part_no", e.target.value)}
+                      placeholder="Optional"
+                    />
+                  </div>
+                  <div>
+                    <label style={lbl}>Qty *</label>
+                    <input
+                      type="number"
+                      style={inp}
+                      value={item.qty}
+                      onChange={(e) => updateItem(i, "qty", e.target.value)}
+                      placeholder="0"
+                      min="0"
+                      step="0.01"
+                    />
+                    {errors[`item_qty_${i}`] && <div style={err}>{errors[`item_qty_${i}`]}</div>}
+                  </div>
+                  <div>
+                    <label style={lbl}>Unit Cost *</label>
+                    <input
+                      type="number"
+                      style={inp}
+                      value={item.unit_cost}
+                      onChange={(e) => updateItem(i, "unit_cost", e.target.value)}
+                      placeholder="0.00"
+                      min="0"
+                      step="0.01"
+                    />
+                    {errors[`item_cost_${i}`] && <div style={err}>{errors[`item_cost_${i}`]}</div>}
+                  </div>
+                </div>
+                <div style={{ textAlign: "right", fontWeight: 600, color: "#1E293B", fontSize: 14 }}>
+                  {fmt(lineTotal)}
+                </div>
+              </div>
+            );
+          })}
         </div>
         <div
           style={{
@@ -1003,6 +1130,21 @@ function POCard({ po, onEdit, onDelete, expanded, onToggle, machines }) {
         >
           {po.machine}
         </span>
+        {po.supplier && (
+          <span
+            style={{
+              background: "#F1F5F9",
+              color: "#475569",
+              padding: "3px 10px",
+              borderRadius: 20,
+              fontSize: 12,
+              fontWeight: 500,
+              whiteSpace: "nowrap",
+            }}
+          >
+            🏭 {po.supplier}
+          </span>
+        )}
         <span style={{ color: "#94A3B8", fontSize: 13, whiteSpace: "nowrap" }}>
           {po.items?.length || 0} items
         </span>
@@ -1185,6 +1327,7 @@ function TabPOLog({
   jumpTo,
   setJumpTo,
   machines,
+  suppliers,
 }) {
   const [showForm, setShowForm] = useState(false);
   const [editPO, setEditPO] = useState(null);
@@ -1313,6 +1456,7 @@ function TabPOLog({
           editPO={editPO}
           saving={saving}
           machines={machines}
+          suppliers={suppliers}
           onSave={async (data) => {
             await onSave(data, editPO);
             setShowForm(false);
@@ -2251,12 +2395,14 @@ function TabByMachine({ pos, machines }) {
 export default function App() {
   const [pos, setPos] = useState([]);
   const [machines, setMachines] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dbStatus, setDbStatus] = useState("loading");
   const [tab, setTab] = useState("log");
   const [saving, setSaving] = useState(false);
   const [machineSaving, setMachineSaving] = useState(false);
+  const [supplierSaving, setSupplierSaving] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [jumpTo, setJumpTo] = useState(null);
 
@@ -2270,10 +2416,11 @@ export default function App() {
     setLoading(true);
     setDbStatus("loading");
     try {
-      const [orders, items, machineRows] = await Promise.all([
+      const [orders, items, machineRows, supplierRows] = await Promise.all([
         sbFetch("/purchase_orders?select=*&order=date.desc"),
         sbFetch("/line_items?select=*&order=created_at.asc"),
         sbFetch("/machines?select=*&order=created_at.asc"),
+        sbFetch("/suppliers?select=*&order=created_at.asc"),
       ]);
       const itemMap = {};
       (items || []).forEach((i) => {
@@ -2282,6 +2429,7 @@ export default function App() {
       });
       setPos((orders || []).map((p) => ({ ...p, items: itemMap[p.id] || [] })));
       setMachines(machineRows || []);
+      setSuppliers(supplierRows || []);
       setDbStatus("connected");
       setError(null);
     } catch (e) {
@@ -2308,6 +2456,7 @@ export default function App() {
             po: data.po,
             date: data.date,
             machine: data.machine,
+            supplier: data.supplier || null,
             description: data.description,
             total,
           }),
@@ -2323,6 +2472,7 @@ export default function App() {
             po: data.po,
             date: data.date,
             machine: data.machine,
+            supplier: data.supplier || null,
             description: data.description,
             total,
           }),
@@ -2401,6 +2551,41 @@ export default function App() {
     }
   }
 
+  async function handleSaveSupplier(data, editSupplier) {
+    setSupplierSaving(true);
+    try {
+      if (editSupplier) {
+        await sbFetch(`/suppliers?id=eq.${editSupplier.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ name: data.name }),
+        });
+        addToast("Supplier updated", "success");
+      } else {
+        await sbFetch("/suppliers", {
+          method: "POST",
+          body: JSON.stringify({ name: data.name }),
+        });
+        addToast("Supplier added", "success");
+      }
+      await loadData();
+    } catch (e) {
+      addToast("Error: " + e.message, "error");
+    } finally {
+      setSupplierSaving(false);
+    }
+  }
+
+  async function handleDeleteSupplier(id) {
+    try {
+      await sbFetch(`/suppliers?id=eq.${id}`, { method: "DELETE" });
+      addToast("Supplier deleted", "success");
+      await loadData();
+    } catch (e) {
+      addToast("Error: " + e.message, "error");
+      throw e;
+    }
+  }
+
   function navigateToPO(id) {
     setTab("log");
     setJumpTo(id);
@@ -2416,6 +2601,7 @@ export default function App() {
     { id: "monthly", label: "📅 Monthly" },
     { id: "machine", label: "🔧 By Machine" },
     { id: "machines", label: "⚙️ Machines" },
+    { id: "suppliers", label: "🏭 Suppliers" },
   ];
 
   const statusColor =
@@ -2615,6 +2801,7 @@ export default function App() {
               jumpTo={jumpTo}
               setJumpTo={setJumpTo}
               machines={machines}
+              suppliers={suppliers}
             />
           )}
           {tab === "search" && (
@@ -2629,6 +2816,15 @@ export default function App() {
               onSave={handleSaveMachine}
               onDelete={handleDeleteMachine}
               saving={machineSaving}
+            />
+          )}
+          {tab === "suppliers" && (
+            <TabSuppliers
+              suppliers={suppliers}
+              pos={pos}
+              onSave={handleSaveSupplier}
+              onDelete={handleDeleteSupplier}
+              saving={supplierSaving}
             />
           )}
         </div>
