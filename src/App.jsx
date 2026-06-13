@@ -2663,7 +2663,7 @@ export default function App() {
               />
             </div>
             <div style={{ fontSize: 13, opacity: 0.75 }}>
-              Purchase order tracking,parts ordering,supplier histroy and machine expenditure
+                 Purchase order tracking, parts ordering, supplier history and machine expenditure
             </div>
           </div>
           <button
