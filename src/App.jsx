@@ -2648,7 +2648,7 @@ export default function App() {
             >
               <span style={{ fontSize: 22 }}>⚙️</span>
               <span style={{ fontSize: 22, fontWeight: 800 }}>
-                Destruction PO Tracker
+                PO Tracker
               </span>
               <span
                 style={{
@@ -2663,7 +2663,7 @@ export default function App() {
               />
             </div>
             <div style={{ fontSize: 13, opacity: 0.75 }}>
-              Purchase order management for destruction machines
+              Purchase order management
             </div>
           </div>
           <button
