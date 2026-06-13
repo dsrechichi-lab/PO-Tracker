@@ -2681,7 +2681,7 @@ export default function App() {
               fontWeight: 500,
             }}
           >
-            🔍 Search parts{" "}
+            🔍 Search {" "}
             <kbd
               style={{
                 background: "rgba(255,255,255,0.2)",
