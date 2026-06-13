@@ -25,27 +25,20 @@ async function sbFetch(path, opts = {}) {
   return text ? JSON.parse(text) : null;
 }
 
-const MACHINES = ["Machine A", "Machine B", "Machine C", "Machine D"];
 const MONTHS = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
 ];
-const MACHINE_COLORS = {
-  "Machine A": "#2E75B6",
-  "Machine B": "#059669",
-  "Machine C": "#EA580C",
-  "Machine D": "#7C3AED",
-};
+
+const COLOR_PALETTE = [
+  "#2E75B6", "#059669", "#EA580C", "#7C3AED",
+  "#DC2626", "#0891B2", "#D97706", "#16A34A",
+  "#9333EA", "#DB2777", "#0284C7", "#65A30D",
+];
+
+function getMachineColor(machines, name) {
+  return machines.find((m) => m.name === name)?.color || "#64748B";
+}
 
 function fmt(n) {
   return Number(n || 0).toLocaleString("en-US", {
@@ -180,7 +173,409 @@ function Highlight({ text, term }) {
   );
 }
 
-function POForm({ editPO, onSave, onCancel, saving }) {
+function MachineForm({ editMachine, onSave, onCancel, saving }) {
+  const [name, setName] = useState(editMachine?.name || "");
+  const [color, setColor] = useState(editMachine?.color || COLOR_PALETTE[0]);
+  const [errors, setErrors] = useState({});
+
+  function validate() {
+    const e = {};
+    if (!name.trim()) e.name = "Machine name is required";
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  }
+
+  function submit() {
+    if (!validate()) return;
+    onSave({ name: name.trim(), color });
+  }
+
+  const inp = {
+    padding: "9px 12px",
+    borderRadius: 8,
+    border: "1px solid #E2E8F0",
+    fontSize: 14,
+    color: "#1E293B",
+    outline: "none",
+    width: "100%",
+    boxSizing: "border-box",
+  };
+  const lbl = {
+    fontSize: 12,
+    fontWeight: 600,
+    color: "#64748B",
+    marginBottom: 4,
+    display: "block",
+    textTransform: "uppercase",
+    letterSpacing: "0.05em",
+  };
+  const err = { color: "#DC2626", fontSize: 12, marginTop: 3 };
+
+  return (
+    <div
+      style={{
+        background: "#fff",
+        borderRadius: 16,
+        padding: 24,
+        marginBottom: 20,
+        boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+        border: "1px solid #E2E8F0",
+      }}
+    >
+      <h3 style={{ margin: "0 0 20px", color: "#1E293B", fontSize: 18 }}>
+        {editMachine ? "Edit Machine" : "New Machine"}
+      </h3>
+      <div style={{ marginBottom: 20 }}>
+        <label style={lbl}>Machine Name *</label>
+        <input
+          style={inp}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. Machine E"
+        />
+        {errors.name && <div style={err}>{errors.name}</div>}
+      </div>
+      <div style={{ marginBottom: 20 }}>
+        <label style={lbl}>Color</label>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {COLOR_PALETTE.map((c) => (
+            <button
+              key={c}
+              onClick={() => setColor(c)}
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                background: c,
+                border: color === c ? "3px solid #1E293B" : "3px solid transparent",
+                cursor: "pointer",
+                padding: 0,
+                outline: "none",
+                boxShadow: color === c ? "0 0 0 2px #fff inset" : "none",
+              }}
+            />
+          ))}
+        </div>
+      </div>
+      <div style={{ marginBottom: 20 }}>
+        <label style={lbl}>Preview</label>
+        <span
+          style={{
+            background: color + "20",
+            color,
+            padding: "4px 14px",
+            borderRadius: 20,
+            fontSize: 13,
+            fontWeight: 600,
+          }}
+        >
+          {name || "Machine Name"}
+        </span>
+      </div>
+      <div style={{ display: "flex", gap: 12 }}>
+        <button
+          onClick={submit}
+          disabled={saving}
+          style={{
+            padding: "11px 28px",
+            borderRadius: 10,
+            border: "none",
+            background: "#2E75B6",
+            color: "#fff",
+            cursor: saving ? "not-allowed" : "pointer",
+            fontWeight: 600,
+            fontSize: 14,
+            opacity: saving ? 0.7 : 1,
+          }}
+        >
+          {saving ? "Saving…" : editMachine ? "Save Changes" : "Add Machine"}
+        </button>
+        <button
+          onClick={onCancel}
+          style={{
+            padding: "11px 24px",
+            borderRadius: 10,
+            border: "1px solid #E2E8F0",
+            background: "#fff",
+            cursor: "pointer",
+            fontWeight: 500,
+            fontSize: 14,
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TabMachines({ machines, pos, onSave, onDelete, saving }) {
+  const [showForm, setShowForm] = useState(false);
+  const [editMachine, setEditMachine] = useState(null);
+  const [deleteMachine, setDeleteMachine] = useState(null);
+  const [delSaving, setDelSaving] = useState(false);
+
+  const poCountByMachine = useMemo(() => {
+    const counts = {};
+    pos.forEach((p) => {
+      counts[p.machine] = (counts[p.machine] || 0) + 1;
+    });
+    return counts;
+  }, [pos]);
+
+  async function handleDelete() {
+    setDelSaving(true);
+    await onDelete(deleteMachine.id);
+    setDelSaving(false);
+    setDeleteMachine(null);
+  }
+
+  function startEdit(machine) {
+    setEditMachine(machine);
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  return (
+    <div>
+      {deleteMachine && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            backdropFilter: "blur(4px)",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 16,
+              padding: 32,
+              maxWidth: 400,
+              width: "90%",
+              textAlign: "center",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+            }}
+          >
+            <div style={{ fontSize: 48, marginBottom: 16 }}>🗑️</div>
+            <h3 style={{ margin: "0 0 8px", color: "#1E293B", fontSize: 20 }}>
+              Delete Machine?
+            </h3>
+            <p style={{ color: "#64748B", margin: "0 0 8px" }}>
+              Delete <strong>{deleteMachine.name}</strong>? This cannot be undone.
+            </p>
+            {(poCountByMachine[deleteMachine.name] || 0) > 0 && (
+              <p
+                style={{
+                  background: "#FEF3C7",
+                  border: "1px solid #FDE68A",
+                  borderRadius: 8,
+                  padding: "10px 14px",
+                  color: "#92400E",
+                  fontSize: 13,
+                  margin: "0 0 16px",
+                }}
+              >
+                ⚠️ {poCountByMachine[deleteMachine.name]} PO
+                {poCountByMachine[deleteMachine.name] !== 1 ? "s" : ""} reference
+                this machine and will lose their machine color.
+              </p>
+            )}
+            <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 16 }}>
+              <button
+                onClick={() => setDeleteMachine(null)}
+                style={{
+                  padding: "10px 24px",
+                  borderRadius: 8,
+                  border: "1px solid #E2E8F0",
+                  background: "#fff",
+                  cursor: "pointer",
+                  fontWeight: 500,
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={delSaving}
+                style={{
+                  padding: "10px 24px",
+                  borderRadius: 8,
+                  border: "none",
+                  background: "#DC2626",
+                  color: "#fff",
+                  cursor: delSaving ? "not-allowed" : "pointer",
+                  fontWeight: 500,
+                  opacity: delSaving ? 0.7 : 1,
+                }}
+              >
+                {delSaving ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      <div
+        style={{
+          display: "flex",
+          gap: 10,
+          marginBottom: 20,
+          alignItems: "center",
+        }}
+      >
+        <button
+          onClick={() => {
+            setShowForm((s) => !s);
+            setEditMachine(null);
+          }}
+          style={{
+            padding: "9px 18px",
+            borderRadius: 10,
+            border: "none",
+            background: "#2E75B6",
+            color: "#fff",
+            cursor: "pointer",
+            fontWeight: 600,
+            fontSize: 14,
+          }}
+        >
+          {showForm && !editMachine ? "✕ Cancel" : "➕ New Machine"}
+        </button>
+        <span style={{ color: "#64748B", fontSize: 13, marginLeft: "auto" }}>
+          {machines.length} machine{machines.length !== 1 ? "s" : ""}
+        </span>
+      </div>
+      {showForm && (
+        <MachineForm
+          editMachine={editMachine}
+          saving={saving}
+          onSave={async (data) => {
+            await onSave(data, editMachine);
+            setShowForm(false);
+            setEditMachine(null);
+          }}
+          onCancel={() => {
+            setShowForm(false);
+            setEditMachine(null);
+          }}
+        />
+      )}
+      {machines.length === 0 ? (
+        <div style={{ textAlign: "center", padding: 60, color: "#94A3B8" }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>🔧</div>
+          <div style={{ fontSize: 16 }}>No machines yet. Add your first machine above.</div>
+        </div>
+      ) : (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+            gap: 16,
+          }}
+        >
+          {machines.map((m) => {
+            const count = poCountByMachine[m.name] || 0;
+            return (
+              <div
+                key={m.id}
+                style={{
+                  background: "#fff",
+                  borderRadius: 14,
+                  padding: "20px 24px",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+                  border: "1px solid #E2E8F0",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    marginBottom: 12,
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 14,
+                      height: 14,
+                      borderRadius: "50%",
+                      background: m.color,
+                      display: "inline-block",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span
+                    style={{ fontWeight: 700, color: "#1E293B", fontSize: 16, flex: 1 }}
+                  >
+                    {m.name}
+                  </span>
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <span
+                    style={{
+                      background: m.color + "20",
+                      color: m.color,
+                      padding: "3px 12px",
+                      borderRadius: 20,
+                      fontSize: 12,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {m.name}
+                  </span>
+                </div>
+                <div style={{ fontSize: 13, color: "#64748B", marginBottom: 16 }}>
+                  {count} PO{count !== 1 ? "s" : ""}
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    onClick={() => startEdit(m)}
+                    style={{
+                      flex: 1,
+                      padding: "7px 0",
+                      borderRadius: 8,
+                      border: "1px solid #E2E8F0",
+                      background: "#F8FAFC",
+                      cursor: "pointer",
+                      fontSize: 13,
+                      color: "#2E75B6",
+                      fontWeight: 500,
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => setDeleteMachine(m)}
+                    style={{
+                      flex: 1,
+                      padding: "7px 0",
+                      borderRadius: 8,
+                      border: "none",
+                      background: "#FEE2E2",
+                      cursor: "pointer",
+                      fontSize: 13,
+                      color: "#DC2626",
+                      fontWeight: 500,
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function POForm({ editPO, onSave, onCancel, saving, machines }) {
   const [po, setPo] = useState(editPO?.po || "");
   const [date, setDate] = useState(editPO?.date || "");
   const [desc, setDesc] = useState(editPO?.description || "");
@@ -329,26 +724,32 @@ function POForm({ editPO, onSave, onCancel, saving }) {
       </div>
       <div style={{ marginBottom: 20 }}>
         <label style={lbl}>Machine *</label>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          {MACHINES.map((m) => (
-            <button
-              key={m}
-              onClick={() => setMachine(m)}
-              style={{
-                padding: "8px 18px",
-                borderRadius: 20,
-                border: `2px solid ${MACHINE_COLORS[m]}`,
-                background: machine === m ? MACHINE_COLORS[m] : "#fff",
-                color: machine === m ? "#fff" : MACHINE_COLORS[m],
-                cursor: "pointer",
-                fontWeight: 600,
-                fontSize: 13,
-              }}
-            >
-              {m}
-            </button>
-          ))}
-        </div>
+        {machines.length === 0 ? (
+          <div style={{ color: "#94A3B8", fontSize: 13 }}>
+            No machines configured. Add machines in the Machines tab first.
+          </div>
+        ) : (
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {machines.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => setMachine(m.name)}
+                style={{
+                  padding: "8px 18px",
+                  borderRadius: 20,
+                  border: `2px solid ${m.color}`,
+                  background: machine === m.name ? m.color : "#fff",
+                  color: machine === m.name ? "#fff" : m.color,
+                  cursor: "pointer",
+                  fontWeight: 600,
+                  fontSize: 13,
+                }}
+              >
+                {m.name}
+              </button>
+            ))}
+          </div>
+        )}
         {errors.machine && <div style={err}>{errors.machine}</div>}
       </div>
       <div style={{ marginBottom: 20 }}>
@@ -536,8 +937,8 @@ function POForm({ editPO, onSave, onCancel, saving }) {
   );
 }
 
-function POCard({ po, onEdit, onDelete, expanded, onToggle }) {
-  const color = MACHINE_COLORS[po.machine] || "#64748B";
+function POCard({ po, onEdit, onDelete, expanded, onToggle, machines }) {
+  const color = getMachineColor(machines, po.machine);
   return (
     <div
       style={{
@@ -783,6 +1184,7 @@ function TabPOLog({
   saving,
   jumpTo,
   setJumpTo,
+  machines,
 }) {
   const [showForm, setShowForm] = useState(false);
   const [editPO, setEditPO] = useState(null);
@@ -878,9 +1280,9 @@ function TabPOLog({
           onChange={(e) => setFilterMachine(e.target.value)}
         >
           <option value="">All Machines</option>
-          {MACHINES.map((m) => (
-            <option key={m} value={m}>
-              {m}
+          {machines.map((m) => (
+            <option key={m.id} value={m.name}>
+              {m.name}
             </option>
           ))}
         </select>
@@ -910,6 +1312,7 @@ function TabPOLog({
         <POForm
           editPO={editPO}
           saving={saving}
+          machines={machines}
           onSave={async (data) => {
             await onSave(data, editPO);
             setShowForm(false);
@@ -942,6 +1345,7 @@ function TabPOLog({
           <POCard
             key={p.id}
             po={p}
+            machines={machines}
             expanded={expandedId === p.id}
             onToggle={() => setExpandedId((id) => (id === p.id ? null : p.id))}
             onEdit={startEdit}
@@ -953,7 +1357,7 @@ function TabPOLog({
   );
 }
 
-function TabSearch({ pos, onNavigateToPO }) {
+function TabSearch({ pos, onNavigateToPO, machines }) {
   const [q, setQ] = useState("");
   const inputRef = useRef(null);
 
@@ -1001,7 +1405,7 @@ function TabSearch({ pos, onNavigateToPO }) {
     () => results.reduce((s, r) => s + r.qty * r.unit_cost, 0),
     [results],
   );
-  const color = (m) => MACHINE_COLORS[m] || "#64748B";
+  const color = (m) => getMachineColor(machines, m);
 
   return (
     <div>
@@ -1508,21 +1912,22 @@ function TabMonthly({ pos }) {
   );
 }
 
-function TabByMachine({ pos }) {
+function TabByMachine({ pos, machines }) {
   const machineData = useMemo(() => {
     const grand = pos.reduce((s, p) => s + parseFloat(p.total || 0), 0);
-    return MACHINES.map((m) => {
-      const mpos = pos.filter((p) => p.machine === m);
+    return machines.map((m) => {
+      const mpos = pos.filter((p) => p.machine === m.name);
       const total = mpos.reduce((s, p) => s + parseFloat(p.total || 0), 0);
       return {
-        machine: m,
+        machine: m.name,
+        color: m.color,
         pos: mpos.length,
         items: mpos.reduce((s, p) => s + (p.items?.length || 0), 0),
         total,
         pct: grand > 0 ? (total / grand) * 100 : 0,
       };
     });
-  }, [pos]);
+  }, [pos, machines]);
 
   const monthCols = useMemo(() => {
     const keys = new Set();
@@ -1534,10 +1939,10 @@ function TabByMachine({ pos }) {
 
   const grid = useMemo(() => {
     const g = {};
-    MACHINES.forEach((m) => {
-      g[m] = {};
+    machines.forEach((m) => {
+      g[m.name] = {};
       monthCols.forEach((k) => {
-        g[m][k] = 0;
+        g[m.name][k] = 0;
       });
     });
     pos.forEach((p) => {
@@ -1547,7 +1952,7 @@ function TabByMachine({ pos }) {
         g[p.machine][k] = (g[p.machine][k] || 0) + parseFloat(p.total || 0);
     });
     return g;
-  }, [pos, monthCols]);
+  }, [pos, monthCols, machines]);
 
   function fmtColHeader(k) {
     const [y, m] = k.split("-");
@@ -1560,7 +1965,7 @@ function TabByMachine({ pos }) {
         style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 28 }}
       >
         {machineData.map((d) => {
-          const color = MACHINE_COLORS[d.machine];
+          const color = d.color;
           return (
             <div
               key={d.machine}
@@ -1634,7 +2039,7 @@ function TabByMachine({ pos }) {
           );
         })}
       </div>
-      {monthCols.length === 0 ? (
+      {machines.length === 0 || monthCols.length === 0 ? (
         <div
           style={{
             textAlign: "center",
@@ -1706,11 +2111,11 @@ function TabByMachine({ pos }) {
               </tr>
             </thead>
             <tbody>
-              {MACHINES.map((m, mi) => {
-                const color = MACHINE_COLORS[m];
+              {machines.map((m, mi) => {
+                const color = m.color;
                 return (
                   <tr
-                    key={m}
+                    key={m.name}
                     style={{
                       background: mi % 2 === 0 ? "#fff" : "#FAFBFC",
                       borderBottom: "1px solid #F1F5F9",
@@ -1749,7 +2154,7 @@ function TabByMachine({ pos }) {
                             fontSize: 14,
                           }}
                         >
-                          {m}
+                          {m.name}
                         </span>
                       </div>
                     </td>
@@ -1759,12 +2164,12 @@ function TabByMachine({ pos }) {
                         style={{
                           padding: "12px 14px",
                           textAlign: "right",
-                          color: grid[m][k] > 0 ? "#1E293B" : "#CBD5E1",
+                          color: (grid[m.name][k] || 0) > 0 ? "#1E293B" : "#CBD5E1",
                           fontSize: 14,
-                          fontWeight: grid[m][k] > 0 ? 500 : 400,
+                          fontWeight: (grid[m.name][k] || 0) > 0 ? 500 : 400,
                         }}
                       >
-                        {grid[m][k] > 0 ? fmt(grid[m][k]) : "—"}
+                        {(grid[m.name][k] || 0) > 0 ? fmt(grid[m.name][k]) : "—"}
                       </td>
                     ))}
                     <td
@@ -1777,7 +2182,7 @@ function TabByMachine({ pos }) {
                       }}
                     >
                       {fmt(
-                        machineData.find((d) => d.machine === m)?.total || 0,
+                        machineData.find((d) => d.machine === m.name)?.total || 0,
                       )}
                     </td>
                   </tr>
@@ -1804,8 +2209,8 @@ function TabByMachine({ pos }) {
                   Grand Total
                 </td>
                 {monthCols.map((k) => {
-                  const colTotal = MACHINES.reduce(
-                    (s, m) => s + (grid[m][k] || 0),
+                  const colTotal = machines.reduce(
+                    (s, m) => s + (grid[m.name][k] || 0),
                     0,
                   );
                   return (
@@ -1845,11 +2250,13 @@ function TabByMachine({ pos }) {
 
 export default function App() {
   const [pos, setPos] = useState([]);
+  const [machines, setMachines] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dbStatus, setDbStatus] = useState("loading");
   const [tab, setTab] = useState("log");
   const [saving, setSaving] = useState(false);
+  const [machineSaving, setMachineSaving] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [jumpTo, setJumpTo] = useState(null);
 
@@ -1863,9 +2270,10 @@ export default function App() {
     setLoading(true);
     setDbStatus("loading");
     try {
-      const [orders, items] = await Promise.all([
+      const [orders, items, machineRows] = await Promise.all([
         sbFetch("/purchase_orders?select=*&order=date.desc"),
         sbFetch("/line_items?select=*&order=created_at.asc"),
+        sbFetch("/machines?select=*&order=created_at.asc"),
       ]);
       const itemMap = {};
       (items || []).forEach((i) => {
@@ -1873,6 +2281,7 @@ export default function App() {
         itemMap[i.po_id].push(i);
       });
       setPos((orders || []).map((p) => ({ ...p, items: itemMap[p.id] || [] })));
+      setMachines(machineRows || []);
       setDbStatus("connected");
       setError(null);
     } catch (e) {
@@ -1957,6 +2366,41 @@ export default function App() {
     }
   }
 
+  async function handleSaveMachine(data, editMachine) {
+    setMachineSaving(true);
+    try {
+      if (editMachine) {
+        await sbFetch(`/machines?id=eq.${editMachine.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ name: data.name, color: data.color }),
+        });
+        addToast("Machine updated", "success");
+      } else {
+        await sbFetch("/machines", {
+          method: "POST",
+          body: JSON.stringify({ name: data.name, color: data.color }),
+        });
+        addToast("Machine added", "success");
+      }
+      await loadData();
+    } catch (e) {
+      addToast("Error: " + e.message, "error");
+    } finally {
+      setMachineSaving(false);
+    }
+  }
+
+  async function handleDeleteMachine(id) {
+    try {
+      await sbFetch(`/machines?id=eq.${id}`, { method: "DELETE" });
+      addToast("Machine deleted", "success");
+      await loadData();
+    } catch (e) {
+      addToast("Error: " + e.message, "error");
+      throw e;
+    }
+  }
+
   function navigateToPO(id) {
     setTab("log");
     setJumpTo(id);
@@ -1971,6 +2415,7 @@ export default function App() {
     { id: "search", label: "🔍 Search" },
     { id: "monthly", label: "📅 Monthly" },
     { id: "machine", label: "🔧 By Machine" },
+    { id: "machines", label: "⚙️ Machines" },
   ];
 
   const statusColor =
@@ -2169,13 +2614,23 @@ export default function App() {
               saving={saving}
               jumpTo={jumpTo}
               setJumpTo={setJumpTo}
+              machines={machines}
             />
           )}
           {tab === "search" && (
-            <TabSearch pos={pos} onNavigateToPO={navigateToPO} />
+            <TabSearch pos={pos} onNavigateToPO={navigateToPO} machines={machines} />
           )}
           {tab === "monthly" && <TabMonthly pos={pos} />}
-          {tab === "machine" && <TabByMachine pos={pos} />}
+          {tab === "machine" && <TabByMachine pos={pos} machines={machines} />}
+          {tab === "machines" && (
+            <TabMachines
+              machines={machines}
+              pos={pos}
+              onSave={handleSaveMachine}
+              onDelete={handleDeleteMachine}
+              saving={machineSaving}
+            />
+          )}
         </div>
       </div>
     </div>
